@@ -99,8 +99,6 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 		// read_lib -X cell1 -X cell2 file1 ; read_lib -X cell1 -X cell2 -m file2 ; ... ; write_scl merged.scl
 		// Concurrent writers cannot corrupt each other even when running without the lock.
 		std::string temp_scl = stringf("%s.%u.tmp", merged_scl.c_str(), get_process_id());
-
-#ifdef YOSYS_LINK_ABC
 		std::string script_path = stringf("%s/yosys_merged_scl_convert_%08x_%u.script", cache_dir.c_str(), hash, get_process_id());
 		FILE *f = fopen(script_path.c_str(), "w");
 
@@ -119,6 +117,7 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 		fprintf(f, "write_scl \"%s\"\n", temp_scl.c_str());
 		fclose(f);
 
+#ifdef YOSYS_LINK_ABC
 		char *abc_argv[5];
 		abc_argv[0] = strdup(abc_exe.empty() ? "yosys-abc" : abc_exe.c_str());
 		abc_argv[1] = strdup("-s");
@@ -138,18 +137,10 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 			return "";
 		}
 #else
-		std::string abc_script;
-		bool first = true;
-
-		for (const std::string &liberty_file : liberty_files) {
-			abc_script += stringf("read_lib %s%s-w \\\"%s\\\" ; ", dont_use_args.c_str(), first ? "" : "-m ", liberty_file.c_str());
-			first = false;
-		}
-
-		abc_script += stringf("write_scl \\\"%s\\\"", temp_scl.c_str());
-		std::string cmd = stringf("\"%s\" -c \"%s\" 2>&1", abc_exe.c_str(), abc_script.c_str());
+		std::string cmd = stringf("\"%s\" -s -f \"%s\" 2>&1", abc_exe.c_str(), script_path.c_str());
 		std::string abc_output;
 		int ret = run_command(cmd, [&abc_output](const std::string &line) { abc_output += line + "\n"; });
+		remove(script_path.c_str());
 
 		if (ret != 0) {
 			log_warning("ABC: merged SCL conversion failed, falling back to liberty format\n");
