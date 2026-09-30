@@ -224,9 +224,6 @@ std::optional<AbcProcess> spawn_abc(const char* abc_exe, DeferredLogs &logs) {
 	AbcProcess result;
 	result.to_child_pipe = to_child_pipe[1];
 	result.from_child_pipe = from_child_pipe[0];
-	// Allow the child side of the pipes to be inherited.
-	fcntl(to_child_pipe[0], F_SETFD, 0);
-	fcntl(from_child_pipe[1], F_SETFD, 0);
 
 	posix_spawn_file_actions_t file_actions;
 	if (posix_spawn_file_actions_init(&file_actions) != 0) {
